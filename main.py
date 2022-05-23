@@ -26,6 +26,7 @@ class Predicter(QObject):
     imagePredicted = pyqtSignal(str)
     authenticFolderPathChanged = pyqtSignal()
     fakeFolderPathChanged = pyqtSignal()
+    modelPreparedChanged = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -34,6 +35,11 @@ class Predicter(QObject):
         self._trainingProcess = False
         self._authenticPath = ''
         self._fakePath = ''
+        self._modelPrepared = False
+
+    @pyqtProperty(bool, notify=modelPreparedChanged)
+    def modelPrepared(self):
+        return self._modelPrepared
 
     @pyqtProperty(str, notify=authenticFolderPathChanged)
     def authenticPath(self):
@@ -45,7 +51,6 @@ class Predicter(QObject):
         resultPath = path
         if url.isLocalFile():
             resultPath = url.toLocalFile()
-        # resultPath = url.isLocalFile() if url.toLocalFile() else path
         self._authenticPath = resultPath
         self.authenticFolderPathChanged.emit()
 
@@ -59,7 +64,6 @@ class Predicter(QObject):
         resultPath = path
         if url.isLocalFile():
             resultPath = url.toLocalFile()
-        # resultPath = url.isLocalFile() if url.toLocalFile() else path
         self._fakePath = resultPath
         self.fakeFolderPathChanged.emit()
 
@@ -73,10 +77,8 @@ class Predicter(QObject):
         resultPath = path
         if url.isLocalFile():
             resultPath = url.toLocalFile()
-        # resultPath = url.isLocalFile() if url.toLocalFile() else path
         self._path = resultPath
         self.imagePathChanged.emit()
-        # self.path_changed.emit()
 
     @pyqtProperty(bool, notify=trainingProcessChanged)
     def trainingProcess(self):
@@ -126,7 +128,7 @@ class Predicter(QObject):
         Y = []  # 0 for fake, 1 for real
 
         path = 'C:/Users/imynn/Downloads/CASIA2/Au'
-        for dirname, _, filenames in os.walk(path):
+        for dirname, _, filenames in os.walk(self._authenticPath):
             for filename in filenames:
                 #         count+=1
                 #         if count < 1000:
@@ -147,7 +149,7 @@ class Predicter(QObject):
         print(len(X), len(Y))
 
         path = 'C:/Users/imynn/Downloads/CASIA2/Tp'
-        for dirname, _, filenames in os.walk(path):
+        for dirname, _, filenames in os.walk(self._fakePath):
             for filename in filenames:
                 if filename.endswith('jpg') or filename.endswith('bmp'):
                     full_path = os.path.join(dirname, filename)
@@ -188,7 +190,21 @@ class Predicter(QObject):
         self._model = model
         self._trainingProcess = False
         self.trainingProcessChanged.emit()
+        self._modelPrepared = True
+        self.modelPreparedChanged.emit()
 
+
+    @pyqtSlot(str)
+    def loadModel(self, path):
+        url = QUrl(path)
+        resultPath = path
+        if url.isLocalFile():
+            resultPath = url.toLocalFile()
+        dir_path = os.path.dirname(os.path.realpath(resultPath))
+        print(dir_path)
+        self._model = load_model(dir_path)
+        self._modelPrepared = True
+        self.modelPreparedChanged.emit()
 
     @pyqtSlot()
     def runTraining(self):
@@ -206,7 +222,7 @@ class Predicter(QObject):
         imageCheck = imageCheck.reshape(-1, 128, 128, 3)
         y_pred = self._model.predict(imageCheck)
         y_pred_class = np.argmax(y_pred, axis=1)[0]
-        message = (f'Изображение: {path}\nКласс : {class_names[y_pred_class]}, вероятность: {np.amax(y_pred) * 100:0.2f}\n\n')
+        message = (f'Изображение: {path}\nКласс : {class_names[y_pred_class]}, вероятность: {np.amax(y_pred) * 100:0.2f}%\n\n')
         self.imagePredicted.emit(message)
         print(y_pred)
         print(f'Class : {class_names[y_pred_class]} Confidence: {np.amax(y_pred) * 100:0.2f}')
@@ -225,24 +241,12 @@ def qt_message_handler(mode, context, message):
      print("%s: %s (%s:%d, %s)" % (mode, message, context.file, context.line, context.file))
 
 if __name__ == '__main__':
-    #if os.path.isdir(imgTmpModel):
-    #    print('load')
-    #    model = load_model(imgTmpModel)
-    #else:
-    #    print('train')
-    #    model = createAndTrainModel()
-    #predict_image('C:\\Users\\imynn\\Downloads\\CASIA2\\Au\\Au_ani_101899.jpg')
-    #QtCore.qInstallMessageHandler(qt_message_handler)
     QtCore.qInstallMessageHandler(qt_message_handler)
     app = QGuiApplication(sys.argv)
-    #qmlRegisterType(Predicter, 'Predicter', 1, 0, 'Predicter')
     engine = QQmlApplicationEngine()
     #engine.quit.connect(app.quit)
     pred = Predicter()
     context = engine.rootContext()
     context.setContextProperty("predicter", pred)
     engine.load('main.qml')
-    #component = QQmlComponent(engine)
-    #component.loadUrl(QUrl.fromLocalFile('main.qml'))
-    #component.create()
     sys.exit(app.exec())
