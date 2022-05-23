@@ -5,6 +5,10 @@ from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from PIL import Image, ImageChops, ImageEnhance
+from PyQt6.QtCore import pyqtProperty, QCoreApplication, QObject, QUrl, pyqtSlot, pyqtSignal
+#from PySide2 import QtCore
+from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtQml import qmlRegisterType, QQmlComponent, QQmlEngine, QQmlApplicationEngine
 import numpy as np
 import os
 import random
@@ -123,6 +127,56 @@ def predict_image(path):
     print(y_pred)
     print(f'Class : {class_names[y_pred_class]} Confidence: {np.amax(y_pred) * 100:0.2f}')
 
+import sys
+
+
+class Predicter(QObject):
+    imagePathChanged = pyqtSignal()
+    #imagePredicted = pyqtSignal(str, name='imagePredicted', arguments='prediction')
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._path = ''
+    @pyqtSlot(str)
+    def predictImage(self, path):
+        print(path)
+        url = QUrl(path)
+        if url.isLocalFile():
+            path = url.toLocalFile()
+        print(path)
+        imageCheck = prepare_image(path)
+        imageCheck = imageCheck.reshape(-1, 128, 128, 3)
+        y_pred = model.predict(imageCheck)
+        y_pred_class = np.argmax(y_pred, axis=1)[0]
+        #self.imagePredicted.emit(f'Class : {class_names[y_pred_class]} Confidence: {np.amax(y_pred) * 100:0.2f}')
+        print(y_pred)
+        print(f'Class : {class_names[y_pred_class]} Confidence: {np.amax(y_pred) * 100:0.2f}')
+    @pyqtProperty(str, notify = imagePathChanged)
+    def imagePath(self):
+        return self._path
+    @imagePath.setter
+    def imagePath(self, path):
+        url = QUrl(path)
+        resultPath = path
+        if url.isLocalFile():
+            resultPath = url.toLocalFile()
+        #resultPath = url.isLocalFile() if url.toLocalFile() else path
+        self._path = resultPath
+        self.imagePathChanged.emit()
+        #self.path_changed.emit()
+
+# def qt_message_handler(mode, context, message):
+#     if mode == QtCore.QtInfoMsg:
+#         mode = 'Info'
+#     elif mode == QtCore.QtWarningMsg:
+#         mode = 'Warning'
+#     elif mode == QtCore.QtCriticalMsg:
+#         mode = 'critical'
+#     elif mode == QtCore.QtFatalMsg:
+#         mode = 'fatal'
+#     else:
+#         mode = 'Debug'
+#     print("%s: %s (%s:%d, %s)" % (mode, message, context.file, context.line, context.file))
+
 if __name__ == '__main__':
     if os.path.isdir(imgTmpModel):
         print('load')
@@ -130,4 +184,17 @@ if __name__ == '__main__':
     else:
         print('train')
         model = createAndTrainModel()
-    predict_image('C:\\Users\\imynn\\Downloads\\CASIA2\\Au\\Au_ani_101899.jpg')
+    #predict_image('C:\\Users\\imynn\\Downloads\\CASIA2\\Au\\Au_ani_101899.jpg')
+    #QtCore.qInstallMessageHandler(qt_message_handler)
+    app = QGuiApplication(sys.argv)
+    #qmlRegisterType(Predicter, 'Predicter', 1, 0, 'Predicter')
+    engine = QQmlApplicationEngine()
+    #engine.quit.connect(app.quit)
+    pred = Predicter()
+    context = engine.rootContext()
+    context.setContextProperty("predicter", pred)
+    engine.load('main.qml')
+    #component = QQmlComponent(engine)
+    #component.loadUrl(QUrl.fromLocalFile('main.qml'))
+    #component.create()
+    sys.exit(app.exec())
