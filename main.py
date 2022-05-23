@@ -30,10 +30,9 @@ class ModelOutputCallback(keras.callbacks.Callback):
         self._signalHelper = sigHelper
 
     def on_epoch_end(self, epoch, logs=None):
-        self._signalHelper.messageSignal.emit("The average loss for epoch {} is {:5.3f}, accuracy is {:5.3f}, val_loss is "
-                                              "{:5.3f}, val_accuracy is {:5.3f} + \n".format(epoch + 1, logs["loss"], logs["accuracy"],
-                                                                                             logs["val_loss"], logs["val_accuracy"]))
-
+        self._signalHelper.messageSignal.emit("Epoch {}, loss: {:5.3f}, accuracy: {:5.3f}, val_loss: {:5.3f}"
+                                              ", val_accuracy: {:5.3f}\n".format(epoch + 1, logs["loss"], logs["accuracy"],
+                                                                                 logs["val_loss"], logs["val_accuracy"]))
 
 class_names = ['Поддельное', 'Подлинное']
 class Predicter(QObject):
@@ -170,7 +169,6 @@ class Predicter(QObject):
         X = []  # ELA converted images
         Y = []  # 0 for fake, 1 for real
 
-        path = 'C:/Users/imynn/Downloads/CASIA2/Au'
         for dirname, _, filenames in os.walk(self._authenticPath):
             for filename in filenames:
                 #         count+=1
@@ -191,7 +189,6 @@ class Predicter(QObject):
         Y = Y[:2100]
         print(len(X), len(Y))
 
-        path = 'C:/Users/imynn/Downloads/CASIA2/Tp'
         for dirname, _, filenames in os.walk(self._fakePath):
             for filename in filenames:
                 if filename.endswith('jpg') or filename.endswith('bmp'):

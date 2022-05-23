@@ -5,9 +5,9 @@ import QtQuick.Dialogs
 
 ApplicationWindow  {
     id: mainWindow
-    width: 450
+    width: 490
     height: 300
-    minimumWidth: 450
+    minimumWidth: 490
     minimumHeight: 310
     maximumHeight: 310
     visible: true
@@ -20,6 +20,13 @@ ApplicationWindow  {
         function onImagePredicted(prediction) {
             textEdit.text += prediction
         }
+
+        function onTrainingProcessChanged() {
+            if (!predicter.trainingProcess) {
+                dialogLearningCompleted.open()
+                mainRect.learningCompleted = true
+            }
+        }
     }
 //    background: Rectangle {
 //        color: "silver"
@@ -27,17 +34,18 @@ ApplicationWindow  {
     Connections {
         target: signalHelper
         function onMessageSignal(message) {
-            console.log("A")
-            textEdit.text += message
+            statisticsTextEdit.text += message
         }
     }
 
     Rectangle {
+        id: mainRect
         anchors.fill: parent
         color: "silver"
         anchors.leftMargin: szNormalMargin
         anchors.topMargin: szNormalMargin
         anchors.rightMargin: szNormalMargin
+        property bool learningCompleted: false
 
         RowLayout {
             id: verificationLayout
@@ -71,10 +79,10 @@ ApplicationWindow  {
                 }
                 RowLayout {
                     Layout.fillWidth: true
+
                     Button {
                         id: btnTrainModel
                         Layout.preferredHeight: 50
-                        //Layout.preferredWidth: 80
                         Layout.fillWidth: true
                         contentItem: Text {
                             text: "Обучить модель"
@@ -82,16 +90,25 @@ ApplicationWindow  {
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
                         }
-                        //text: "Тренировать модель"
-                        //enabled: !predicter.trainingProcess && predicter.fakePath != "" && predicter.authenticPath != ""
-                        //         && predicter.fakePath != predicter.authenticPath
-                        //anchors.left: layoutAuthentic.left
-                        //anchors.top: layoutAuthentic.bottom
-                        //anchors.leftMargin: szNormalMargin
-                        //anchors.topMargin: szNormalMargin / 2
+                        visible: !predicter.trainingProcess
                         onClicked: {
-                            //predicter.runTraining()
                             trainingPopup.open()
+                        }
+                    }
+
+                    Button {
+                        id: btnShowStatistics
+                        Layout.preferredHeight: 50
+                        Layout.fillWidth: true
+                        contentItem: Text {
+                            text: "Статистика обучения"
+                            wrapMode: Text.Wrap
+                            verticalAlignment: Text.AlignVCenter
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        visible: predicter.trainingProcess || mainRect.learningCompleted
+                        onClicked: {
+                            statisticsPopup.open()
                         }
                     }
 
@@ -133,7 +150,7 @@ ApplicationWindow  {
                         Layout.fillWidth: true
                         //Layout.maximumWidth: 150
                         contentItem: Text {
-                            text: "Выберите изображение для проверки"
+                            text: "Выбрать изображение для проверки"
                             wrapMode: Text.Wrap
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
@@ -148,6 +165,58 @@ ApplicationWindow  {
                 }
                 }
             }
+
+        Dialog {
+            id: dialogLearningCompleted
+            anchors.centerIn: parent
+            standardButtons: Dialog.Ok
+            header: Text {
+                text: "Результат обучения"
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Text {
+                text: "Обучение модели завершено"
+                wrapMode: Text.Wrap
+            }
+        }
+
+        Popup {
+            id: statisticsPopup
+            anchors.centerIn: parent
+            bottomMargin: szNormalMargin
+            modal: true
+            implicitWidth: parent.width
+            Overlay.modal: Rectangle {
+                color: "#aacfdbe7"
+            }
+            ColumnLayout {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                Text {
+                    text: "Статистика обучения"
+                    font.pixelSize: 16
+                }
+
+                Flickable {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 230
+                    flickableDirection: Flickable.VerticalFlick
+                    TextArea.flickable: TextArea {
+                        id: statisticsTextEdit
+                        wrapMode: TextEdit.Wrap
+                        readOnly: true
+                        onTextChanged: {
+                            cursorPosition = length-1
+                        }
+                    }
+                    ScrollBar.vertical: ScrollBar {
+
+                    }
+                }
+            }
+
+        }
 
         Popup {
             id: trainingPopup
