@@ -4,12 +4,16 @@ import QtQuick.Layouts 1.3
 import QtQuick.Dialogs
 
 ApplicationWindow  {
-    width: 400
+    id: mainWindow
+    width: 450
     height: 300
-    minimumWidth: 400
-    minimumHeight: 200
+    minimumWidth: 450
+    minimumHeight: 310
+    maximumHeight: 310
     visible: true
+    title: "Image verificator"
     readonly property real szNormalMargin: 16
+    color: "silver"
 
     Connections {
         target: predicter
@@ -17,8 +21,15 @@ ApplicationWindow  {
             textEdit.text += prediction
         }
     }
-    background: Rectangle {
-        color: "silver"
+//    background: Rectangle {
+//        color: "silver"
+//    }
+    Connections {
+        target: signalHelper
+        function onMessageSignal(message) {
+            console.log("A")
+            textEdit.text += message
+        }
     }
 
     Rectangle {
@@ -31,18 +42,20 @@ ApplicationWindow  {
         RowLayout {
             id: verificationLayout
             anchors.left: parent.left
+            anchors.right: parent.right
             anchors.top: parent.top
-            width: 300
+            //width: 300
             spacing: 0
 
             ColumnLayout {
                 Text {
                     text: "Проверка изображения на подлинность"
+                    font.pixelSize: 16
                 }
 
                 Flickable {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: 150
+                    Layout.preferredHeight: 200
                     flickableDirection: Flickable.VerticalFlick
                     TextArea.flickable: TextArea {
                         id: textEdit
@@ -61,9 +74,10 @@ ApplicationWindow  {
                     Button {
                         id: btnTrainModel
                         Layout.preferredHeight: 50
-                        Layout.preferredWidth: 100
+                        //Layout.preferredWidth: 80
+                        Layout.fillWidth: true
                         contentItem: Text {
-                            text: "Тренировать модель"
+                            text: "Обучить модель"
                             wrapMode: Text.Wrap
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
@@ -80,9 +94,11 @@ ApplicationWindow  {
                             trainingPopup.open()
                         }
                     }
+
                     Button {
                         Layout.preferredHeight: 50
-                        Layout.preferredWidth: 100
+                        Layout.fillWidth: true
+                        //Layout.preferredWidth: 80
                         //text: "Загрузить модель"
                         enabled: !predicter.trainingProcess
                         contentItem: Text {
@@ -91,20 +107,31 @@ ApplicationWindow  {
                             verticalAlignment: Text.AlignVCenter
                             horizontalAlignment: Text.AlignHCenter
                         }
-                        //anchors.left: btnTrainModel.right
-                        //anchors.top: layoutAuthentic.bottom
-                        //anchors.leftMargin: szNormalMargin
-                        //anchors.topMargin: szNormalMargin / 2
                         onClicked: {
                             loadModelDialog.open()
                         }
                     }
-
+                    Button {
+                        Layout.preferredHeight: 50
+                        Layout.fillWidth: true
+                        //Layout.preferredWidth: 80
+                        //text: "Загрузить модель"
+                        enabled: !predicter.trainingProcess && predicter.modelPrepared
+                        contentItem: Text {
+                            text: "Сохранить модель"
+                            wrapMode: Text.Wrap
+                            verticalAlignment: Text.AlignVCenter
+                            horizontalAlignment: Text.AlignHCenter
+                        }
+                        onClicked: {
+                            saveModelDialog.open()
+                        }
+                    }
                     Button {
                         //implicitWidth: 50
                         Layout.preferredHeight: 50
-                        Layout.maximumWidth: 150
-                        //text: qsTr("Выберите изображение для проверки")
+                        Layout.fillWidth: true
+                        //Layout.maximumWidth: 150
                         contentItem: Text {
                             text: "Выберите изображение для проверки"
                             wrapMode: Text.Wrap
@@ -122,122 +149,20 @@ ApplicationWindow  {
                 }
             }
 
-//            Button {
-//                //implicitWidth: 50
-//                Layout.preferredHeight: 50
-//                text: qsTr("Hello")
-//                enabled: !predicter.trainingProcess && predicter.modelPrepared
-//                onClicked: {
-//                    console.log("B")
-//                    imagePredictDialog.open()
-//                    //predicter.predictImage("C:\\Users\\imynn\\Downloads\\CASIA2\\Au\\Au_ani_101899.jpg")
-//                }
-//            }
-//        }
-
-//        ColumnLayout {
-//            id: layoutAuthentic
-//            anchors.left: verificationLayout.right
-//            anchors.right: parent.right
-
-//            Text {
-//                text: "Укажите путь до подлинных изображений"
-//            }
-
-//            RowLayout {
-//                Layout.fillWidth: true
-
-//                TextField {
-//                    Layout.fillWidth: true
-//                    readOnly: true
-
-//                    Text {
-//                        anchors.fill: parent
-//                        text: predicter.authenticPath
-//                        elide: Text.ElideRight
-//                    }
-//                }
-
-//                Button {
-//                    text: "Выбрать папку"
-//                    enabled: !predicter.trainingProcess
-//                    onClicked: {
-//                        authenticFolderDialog.open()
-//                    }
-//                }
-//            }
-
-//            Text {
-//                text: "Укажите путь до поддельных изображений"
-//            }
-
-//            RowLayout {
-//                Layout.fillWidth: true
-
-//                TextField {
-//                    Layout.fillWidth: true
-//                    readOnly: true
-
-//                    Text {
-//                        anchors.fill: parent
-//                        text: predicter.fakePath
-//                        elide: Text.ElideRight
-//                    }
-//                }
-
-//                Button {
-//                    text: "Выбрать папку"
-//                    enabled: !predicter.trainingProcess
-//                    onClicked: {
-//                        fakeFolderDialog.open()
-//                    }
-//                }
-//            }
-//        }
-
-
-//        Button {
-//            id: btnTrainModel
-//            height: 50
-//            text: "Тренировать модель"
-//            //enabled: !predicter.trainingProcess && predicter.fakePath != "" && predicter.authenticPath != ""
-//            //         && predicter.fakePath != predicter.authenticPath
-//            anchors.left: layoutAuthentic.left
-//            anchors.top: layoutAuthentic.bottom
-//            //anchors.leftMargin: szNormalMargin
-//            anchors.topMargin: szNormalMargin / 2
-//            onClicked: {
-//                //predicter.runTraining()
-//                trainingPopup.open()
-//            }
-//        }
-//        Button {
-//            height: 50
-//            text: "Загрузить модель"
-//            enabled: !predicter.trainingProcess
-//            anchors.left: btnTrainModel.right
-//            anchors.top: layoutAuthentic.bottom
-//            anchors.leftMargin: szNormalMargin
-//            anchors.topMargin: szNormalMargin / 2
-//            onClicked: {
-//                loadModelDialog.open()
-//            }
-//        }
-
         Popup {
             id: trainingPopup
             anchors.centerIn: parent
-            //implicitHeight: parent.height // (parent.height / 2) - szNormalMargin
-            //implicitWidth: parent.width //(parent.width / 2) - szNormalMargin
-            //implicitHeight: zz.implicitHeight + 2 * szNormalMargin
+            modal: true
+
             implicitWidth: 300
             implicitHeight: 200 + szNormalMargin
+            Overlay.modal: Rectangle {
+                color: "#aacfdbe7"
+            }
+
             ColumnLayout {
                 id: zz
-                //anchors.fill: parent
-                //anchors.left: verificationLayout.right
-                //anchors.left: parent.left
-                //anchors.right: parent.right
+
                 Text {
                     text: "Укажите путь до подлинных изображений"
                 }
@@ -299,7 +224,11 @@ ApplicationWindow  {
                         }
 
                         TextField {
-
+                            id: txtFieldNumEpochs
+                            validator: IntValidator {}
+                            Component.onCompleted: {
+                                text = predicter.epochs
+                            }
                         }
 
                         Text {
@@ -307,8 +236,10 @@ ApplicationWindow  {
                         }
 
                         TextField {
-                            Text {
-
+                            id: txtFieldBatchSize
+                            validator: IntValidator {}
+                            Component.onCompleted: {
+                                text = predicter.batchSize
                             }
                         }
                     }
@@ -318,7 +249,12 @@ ApplicationWindow  {
                         Layout.alignment: Qt.AlignVCenter
                         Layout.preferredHeight: 50
                         text: "Начать обучение модели"
+                        enabled: !predicter.trainingProcess && predicter.fakePath !== "" && predicter.authenticPath !== ""
+                                 && predicter.fakePath !== predicter.authenticPath && txtFieldNumEpochs.text !== "" && txtFieldBatchSize.text !== ""
                         onClicked: {
+                            predicter.epochs = txtFieldNumEpochs.text
+                            predicter.batchSize = txtFieldBatchSize.text
+                            predicter.runTraining()
                             trainingPopup.close()
                         }
                     }
@@ -328,9 +264,18 @@ ApplicationWindow  {
 
         FileDialog {
             id: loadModelDialog
+            nameFilters: ["Saved model (*.pb)"]
             onAccepted: {
                 predicter.loadModel(selectedFile.toString())
                // predictImage(selectedFile)
+            }
+        }
+
+        FileDialog {
+            id: saveModelDialog
+            fileMode: FileDialog.SaveFile
+            onAccepted: {
+                predicter.saveModel(selectedFile.toString())
             }
         }
 
@@ -350,6 +295,7 @@ ApplicationWindow  {
 
         FileDialog {
             id: imagePredictDialog
+            nameFilters: ["Images (*.jpg *.bmp *.png *.tif)"]
             onAccepted: {
                 predicter.imagePath = selectedFile.toString()
                 predicter.predictImage(selectedFile)

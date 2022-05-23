@@ -1,16 +1,18 @@
+import keras.callbacks
 from keras.models import load_model
 from keras.utils.np_utils import to_categorical # used for converting labels to one-hot-encoding
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
+import keras.callbacks
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from PIL import Image, ImageChops, ImageEnhance
-from PyQt6.QtCore import pyqtProperty, QCoreApplication, QObject, QUrl, pyqtSlot, pyqtSignal
+from PyQt6.QtCore import pyqtProperty, QObject, QUrl, pyqtSlot, pyqtSignal
 from PyQt6 import QtCore
+from PyQt6 import QtGui
 from threading import Thread
-#from PySide2 import QtCore
 from PyQt6.QtGui import QGuiApplication
-from PyQt6.QtQml import qmlRegisterType, QQmlComponent, QQmlEngine, QQmlApplicationEngine
+from PyQt6.QtQml import QQmlApplicationEngine
 import numpy as np
 import os
 import random
@@ -18,6 +20,20 @@ import random
 image_size = (128, 128)
 
 import sys
+
+class SignalHelper(QObject):
+    messageSignal = pyqtSignal(str)
+
+class ModelOutputCallback(keras.callbacks.Callback):
+    def __init__(self, sigHelper):
+        super(ModelOutputCallback, self).__init__()
+        self._signalHelper = sigHelper
+
+    def on_epoch_end(self, epoch, logs=None):
+        self._signalHelper.messageSignal.emit("The average loss for epoch {} is {:5.3f}, accuracy is {:5.3f}, val_loss is "
+                                              "{:5.3f}, val_accuracy is {:5.3f} + \n".format(epoch + 1, logs["loss"], logs["accuracy"],
+                                                                                             logs["val_loss"], logs["val_accuracy"]))
+
 
 class_names = ['Поддельное', 'Подлинное']
 class Predicter(QObject):
@@ -27,8 +43,10 @@ class Predicter(QObject):
     authenticFolderPathChanged = pyqtSignal()
     fakeFolderPathChanged = pyqtSignal()
     modelPreparedChanged = pyqtSignal()
+    batchSizeChanged = pyqtSignal()
+    epochsNumChanged = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, sigHelper, parent=None):
         super().__init__(parent)
         self._path = ''
         self._model = Sequential()
@@ -36,15 +54,39 @@ class Predicter(QObject):
         self._authenticPath = ''
         self._fakePath = ''
         self._modelPrepared = False
+        self._epochs = 30
+        self._batch_size = 32
+        self._signalHelper = sigHelper
 
+    #epochs property
+    @pyqtProperty(int, notify=epochsNumChanged)
+    def epochs(self):
+        return self._epochs
+    @epochs.setter
+    def epochs(self, epochs):
+        if (self._epochs != epochs):
+            self._epochs = epochs
+            self.epochsNumChanged.emit()
+
+    #batch size property
+    @pyqtProperty(int, notify=batchSizeChanged)
+    def batchSize(self):
+        return self._batch_size
+    @batchSize.setter
+    def batchSize(self, size):
+        if (self._batch_size != size):
+            self._batch_size = size
+            self.batchSizeChanged.emit()
+
+    #modelPrepared property
     @pyqtProperty(bool, notify=modelPreparedChanged)
     def modelPrepared(self):
         return self._modelPrepared
 
+    #authenticPath property
     @pyqtProperty(str, notify=authenticFolderPathChanged)
     def authenticPath(self):
         return self._authenticPath
-
     @authenticPath.setter
     def authenticPath(self, path):
         url = QUrl(path)
@@ -54,10 +96,10 @@ class Predicter(QObject):
         self._authenticPath = resultPath
         self.authenticFolderPathChanged.emit()
 
+    #fakePath property
     @pyqtProperty(str, notify=fakeFolderPathChanged)
     def fakePath(self):
         return self._fakePath
-
     @fakePath.setter
     def fakePath(self, path):
         url = QUrl(path)
@@ -67,10 +109,10 @@ class Predicter(QObject):
         self._fakePath = resultPath
         self.fakeFolderPathChanged.emit()
 
+    #imageToCheck property
     @pyqtProperty(str, notify=imagePathChanged)
     def imagePath(self):
         return self._path
-
     @imagePath.setter
     def imagePath(self, path):
         url = QUrl(path)
@@ -80,6 +122,7 @@ class Predicter(QObject):
         self._path = resultPath
         self.imagePathChanged.emit()
 
+    #trainingProcess property
     @pyqtProperty(bool, notify=trainingProcessChanged)
     def trainingProcess(self):
         return self._trainingProcess
@@ -140,8 +183,8 @@ class Predicter(QObject):
             #  if len(Y) % 1000 == 0:
             #     print(f'Processing {len(Y)} images')
             #    break
-                #if len(Y) % 1000 == 0:
-                #break
+                #if len(Y) % 2100 == 0:
+                #    break
 
         random.shuffle(X)
         X = X[:2100]
@@ -155,6 +198,8 @@ class Predicter(QObject):
                     full_path = os.path.join(dirname, filename)
                     X.append(self.prepare_image(full_path))
                     Y.append(0)
+                #if len(Y) % 2100 == 0:
+                #    break
 
         print(len(X), len(Y))
 
@@ -177,22 +222,19 @@ class Predicter(QObject):
 
         model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-        batch_size = 32
-        epochs = 1
-
         history = model.fit(
             X_train, Y_train,
-            epochs=epochs,
-            batch_size=batch_size,
+            epochs=self._epochs,
+            batch_size=self._batch_size,
             validation_data=(X_val, Y_val),
-            verbose=2)
+            verbose=2,
+            callbacks=[ModelOutputCallback(self._signalHelper)],)
         #model.save("imgTmpModel2")
         self._model = model
         self._trainingProcess = False
         self.trainingProcessChanged.emit()
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
-
 
     @pyqtSlot(str)
     def loadModel(self, path):
@@ -205,6 +247,14 @@ class Predicter(QObject):
         self._model = load_model(dir_path)
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
+
+    @pyqtSlot(str)
+    def saveModel(self, path):
+        url = QUrl(path)
+        resultPath = path
+        if url.isLocalFile():
+            resultPath = url.toLocalFile()
+        self._model.save(resultPath)
 
     @pyqtSlot()
     def runTraining(self):
@@ -243,10 +293,13 @@ def qt_message_handler(mode, context, message):
 if __name__ == '__main__':
     QtCore.qInstallMessageHandler(qt_message_handler)
     app = QGuiApplication(sys.argv)
+    app.setWindowIcon(QtGui.QIcon('neural-network.png'))
     engine = QQmlApplicationEngine()
     #engine.quit.connect(app.quit)
-    pred = Predicter()
+    sigHelper = SignalHelper()
+    predicter = Predicter(sigHelper)
     context = engine.rootContext()
-    context.setContextProperty("predicter", pred)
+    context.setContextProperty("predicter", predicter)
+    context.setContextProperty("signalHelper", sigHelper)
     engine.load('main.qml')
     sys.exit(app.exec())
