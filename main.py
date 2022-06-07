@@ -1,4 +1,3 @@
-import keras.callbacks
 from keras.models import load_model
 from keras.utils.np_utils import to_categorical # used for converting labels to one-hot-encoding
 from keras.models import Sequential
@@ -7,19 +6,37 @@ import keras.callbacks
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from PIL import Image, ImageChops, ImageEnhance
-from PyQt6.QtCore import pyqtProperty, QObject, QUrl, pyqtSlot, pyqtSignal
-from PyQt6 import QtCore
-from PyQt6 import QtGui
+from PyQt6.QtCore import pyqtProperty, QObject, QUrl, pyqtSlot, pyqtSignal, qInstallMessageHandler, QtMsgType
 from threading import Thread
+from PyQt6 import QtGui
 from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
+import matplotlib.pyplot as plt
+
 import numpy as np
 import os
 import random
-
 image_size = (128, 128)
-
+img_size = 128
 import sys
+import tensorflow as tf
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+  # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+  try:
+    tf.config.set_logical_device_configuration(
+        gpus[0],
+        [tf.config.LogicalDeviceConfiguration(memory_limit=5120)])
+    logical_gpus = tf.config.list_logical_devices('GPU')
+    print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+  except RuntimeError as e:
+    # Virtual devices must be set before GPUs have been initialized
+    print(e)
+
+config = tf.compat.v1.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.compat.v1.Session(config=config)
 
 class SignalHelper(QObject):
     messageSignal = pyqtSignal(str)
@@ -44,6 +61,7 @@ class Predicter(QObject):
     modelPreparedChanged = pyqtSignal()
     batchSizeChanged = pyqtSignal()
     epochsNumChanged = pyqtSignal()
+    #modelLearningFinished = pyqtSignal()
 
     def __init__(self, sigHelper, parent=None):
         super().__init__(parent)
@@ -56,6 +74,8 @@ class Predicter(QObject):
         self._epochs = 30
         self._batch_size = 32
         self._signalHelper = sigHelper
+        self._history = self._model.history
+        #self.modelLearningFinished.connect(self.showPlot)
 
     #epochs property
     @pyqtProperty(int, notify=epochsNumChanged)
@@ -146,16 +166,41 @@ class Predicter(QObject):
 
         return ela_image
 
-    image_size = (128, 128)
-
     def prepare_image(self, image_path):
-        return np.array(self.convert_to_ela_image(image_path, 85).resize(image_size)).flatten() / 255.0
+        return np.array(self.convert_to_ela_image(image_path, 95).resize((img_size,img_size))).flatten() / 255.0
 
     def build_model(self):
         model = Sequential()
-        model.add(Conv2D(filters=32, kernel_size=(5, 5), padding='valid', activation='relu', input_shape=(128, 128, 3)))
-        model.add(Conv2D(filters=32, kernel_size=(5, 5), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+        #model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(224, 224, 3)))
+        #model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
+        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+        #model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+        #model.add(MaxPool2D(pool_size=(2,2), strides=(2,2)))
+        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        #model.add(Flatten())
+        #model.add(Dense(units=4096, activation="relu"))
+        #model.add(Dense(units=4096, activation="relu"))
+        #model.add(Dense(units=2, activation="softmax"))
+        #model = Sequential()
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+
+        model.add(Conv2D(filters=32, kernel_size=(7, 7), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+
         model.add(MaxPool2D(pool_size=(2, 2)))
+
         model.add(Dropout(0.25))
         model.add(Flatten())
         model.add(Dense(256, activation='relu'))
@@ -164,6 +209,11 @@ class Predicter(QObject):
         return model
 
     def createAndTrainModel(self):
+        from tensorflow.python.keras import backend as K
+       # config = tf.compat.v1.ConfigProto(device_count={'GPU': 1, 'CPU': 8})
+        #sess = tf.compat.v1.Session(config=config)
+        #K.set_session(sess)
+
         self._trainingProcess = True
         self.trainingProcessChanged.emit()
         X = []  # ELA converted images
@@ -178,16 +228,20 @@ class Predicter(QObject):
                     full_path = os.path.join(dirname, filename)
                     X.append(self.prepare_image(full_path))
                     Y.append(1)
-            #  if len(Y) % 1000 == 0:
+                if len(Y) % 1000 == 0:
+                    break
+            #if len(Y) % 1000 == 0:
             #     print(f'Processing {len(Y)} images')
-            #    break
+              #  break
                 #if len(Y) % 2100 == 0:
                 #    break
+            if len(Y) % 1000 == 0:
+                break
 
-        random.shuffle(X)
-        X = X[:2100]
-        Y = Y[:2100]
-        print(len(X), len(Y))
+       # random.shuffle(X)
+       # X = X[:2100]
+        #Y = Y[:2100]
+        #print(len(X), len(Y))
 
         for dirname, _, filenames in os.walk(self._fakePath):
             for filename in filenames:
@@ -195,8 +249,10 @@ class Predicter(QObject):
                     full_path = os.path.join(dirname, filename)
                     X.append(self.prepare_image(full_path))
                     Y.append(0)
-                #if len(Y) % 2100 == 0:
-                #    break
+                if len(Y) % 1000 == 0:
+                    break
+            if len(Y) % 1000 == 0:
+                break
 
         print(len(X), len(Y))
 
@@ -205,7 +261,7 @@ class Predicter(QObject):
 
         X = np.array(X)
         Y = to_categorical(Y, 2)
-        X = X.reshape(-1, 128, 128, 3)
+        X = X.reshape(-1, img_size, img_size, 3)
 
         X_train, X_val, Y_train, Y_val = train_test_split(X, Y, test_size=0.2, random_state=14)
         X = X.reshape(-1, 1, 1, 1)
@@ -214,24 +270,28 @@ class Predicter(QObject):
         model = self.build_model()
         model.summary()
 
-        init_lr = 1e-4
-        optimizer = Adam(learning_rate=init_lr, decay=init_lr / 50)
+        init_lr = 1e-5
+        optimizer = Adam(learning_rate=init_lr, decay=init_lr/self._epochs)
 
         model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-        history = model.fit(
+        self._history = model.fit(
             X_train, Y_train,
             epochs=self._epochs,
             batch_size=self._batch_size,
             validation_data=(X_val, Y_val),
             verbose=2,
-            callbacks=[ModelOutputCallback(self._signalHelper)],)
-        #model.save("imgTmpModel2")
+            callbacks=[ModelOutputCallback(self._signalHelper)])#,steps_per_epoch=100, use_multiprocessing=True, workers=4)
+
+        #lossX = history.history['loss']
+        #lossY = history.history['val_loss']
+
         self._model = model
         self._trainingProcess = False
         self.trainingProcessChanged.emit()
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
+        #self.modelLearningFinished.emit()
 
     @pyqtSlot(str)
     def loadModel(self, path):
@@ -244,6 +304,31 @@ class Predicter(QObject):
         self._model = load_model(dir_path)
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
+        #plt.plot([1, 2, 3, 4])
+        #plt.ylabel('some numbers')
+        #plt.show()
+
+    @pyqtSlot()
+    def showLossPlot(self):
+        from matplotlib.pyplot import figure
+        plt.plot(self._history.history['loss'])
+        plt.plot(self._history.history['val_loss'])
+        plt.title('model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
+
+    @pyqtSlot()
+    def showAccuracyPlot(self):
+        from matplotlib.pyplot import figure
+        plt.plot(self._history.history['accuracy'])
+        plt.plot(self._history.history['val_accuracy'])
+        plt.title('model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.show()
 
     @pyqtSlot(str)
     def saveModel(self, path):
@@ -266,7 +351,7 @@ class Predicter(QObject):
             path = url.toLocalFile()
         print(path)
         imageCheck = self.prepare_image(path)
-        imageCheck = imageCheck.reshape(-1, 128, 128, 3)
+        imageCheck = imageCheck.reshape(-1, img_size, img_size, 3)
         y_pred = self._model.predict(imageCheck)
         y_pred_class = np.argmax(y_pred, axis=1)[0]
         message = (f'Изображение: {path}\nКласс : {class_names[y_pred_class]}, вероятность: {np.amax(y_pred) * 100:0.2f}%\n\n')
@@ -275,27 +360,28 @@ class Predicter(QObject):
         print(f'Class : {class_names[y_pred_class]} Confidence: {np.amax(y_pred) * 100:0.2f}')
 
 def qt_message_handler(mode, context, message):
-     if mode == QtCore.QtMsgType.QtInfoMsg:
+     if mode == QtMsgType.QtInfoMsg:
          mode = 'Info'
-     elif mode == QtCore.QtMsgType.QtWarningMsg:
+     elif mode == QtMsgType.QtWarningMsg:
          mode = 'Warning'
-     elif mode == QtCore.QtMsgType.QtCriticalMsg:
+     elif mode == QtMsgType.QtCriticalMsg:
          mode = 'critical'
-     elif mode == QtCore.QtMsgType.QtFatalMsg:
+     elif mode == QtMsgType.QtFatalMsg:
          mode = 'fatal'
      else:
          mode = 'Debug'
      print("%s: %s (%s:%d, %s)" % (mode, message, context.file, context.line, context.file))
 
 if __name__ == '__main__':
-    QtCore.qInstallMessageHandler(qt_message_handler)
-    app = QGuiApplication(sys.argv)
+    qInstallMessageHandler(qt_message_handler)
+    app = QApplication(sys.argv)
     app.setWindowIcon(QtGui.QIcon('neural-network.png'))
     engine = QQmlApplicationEngine()
     #engine.quit.connect(app.quit)
     sigHelper = SignalHelper()
     predicter = Predicter(sigHelper)
     context = engine.rootContext()
+
     context.setContextProperty("predicter", predicter)
     context.setContextProperty("signalHelper", sigHelper)
     engine.load('main.qml')

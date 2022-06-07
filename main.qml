@@ -1,6 +1,6 @@
-import QtQuick 2.15
-import QtQuick.Controls 2.15
-import QtQuick.Layouts 1.3
+import QtQuick 2.0
+import QtQuick.Controls
+import QtQuick.Layouts
 import QtQuick.Dialogs
 
 ApplicationWindow  {
@@ -28,9 +28,7 @@ ApplicationWindow  {
             }
         }
     }
-//    background: Rectangle {
-//        color: "silver"
-//    }
+
     Connections {
         target: signalHelper
         function onMessageSignal(message) {
@@ -163,8 +161,8 @@ ApplicationWindow  {
                         }
                     }
                 }
-                }
             }
+        }
 
         Dialog {
             id: dialogLearningCompleted
@@ -190,9 +188,11 @@ ApplicationWindow  {
             Overlay.modal: Rectangle {
                 color: "#aacfdbe7"
             }
+
             ColumnLayout {
                 anchors.left: parent.left
                 anchors.right: parent.right
+
                 Text {
                     text: "Статистика обучения"
                     font.pixelSize: 16
@@ -202,6 +202,7 @@ ApplicationWindow  {
                     Layout.fillWidth: true
                     Layout.preferredHeight: 230
                     flickableDirection: Flickable.VerticalFlick
+                    //visible: //btnTextStats.visible
                     TextArea.flickable: TextArea {
                         id: statisticsTextEdit
                         wrapMode: TextEdit.Wrap
@@ -210,12 +211,27 @@ ApplicationWindow  {
                             cursorPosition = length-1
                         }
                     }
-                    ScrollBar.vertical: ScrollBar {
-
+                    ScrollBar.vertical: ScrollBar { }
+                }
+                RowLayout {
+                    spacing: 0
+                    visible: mainRect.learningCompleted
+                    Button {
+                        id: btnTextStats
+                        text: "График точности"
+                        onClicked: {
+                            predicter.showAccuracyPlot()
+                        }
+                    }
+                    Button {
+                        id: btnPlotStats
+                        text: "График потерь"
+                        onClicked: {
+                            predicter.showLossPlot()
+                        }
                     }
                 }
             }
-
         }
 
         Popup {
