@@ -1,26 +1,25 @@
-from keras.models import load_model
+import tensorflow as tf
 from keras.utils.np_utils import to_categorical # used for converting labels to one-hot-encoding
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
+from keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPool2D
 import keras.callbacks
+from keras.callbacks import EarlyStopping
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.optimizers import Adam
 from PIL import Image, ImageChops, ImageEnhance
 from PyQt6.QtCore import pyqtProperty, QObject, QUrl, pyqtSlot, pyqtSignal, qInstallMessageHandler, QtMsgType
 from threading import Thread
 from PyQt6 import QtGui
-from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 import matplotlib.pyplot as plt
 
 import numpy as np
 import os
-import random
+from random import shuffle
 image_size = (128, 128)
-img_size = 128
+img_size = 224
 import sys
-import tensorflow as tf
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
   # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
@@ -75,7 +74,6 @@ class Predicter(QObject):
         self._batch_size = 32
         self._signalHelper = sigHelper
         self._history = self._model.history
-        #self.modelLearningFinished.connect(self.showPlot)
 
     #epochs property
     @pyqtProperty(int, notify=epochsNumChanged)
@@ -167,40 +165,40 @@ class Predicter(QObject):
         return ela_image
 
     def prepare_image(self, image_path):
-        return np.array(self.convert_to_ela_image(image_path, 95).resize((img_size,img_size))).flatten() / 255.0
+        return np.array(self.convert_to_ela_image(image_path, 90).resize((img_size,img_size))).flatten() / 255.0
 
-    def build_model(self):
+    def build_modelVGG16(self):
         model = Sequential()
-        #model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(224, 224, 3)))
-        #model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
-        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
-        #model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
-        #model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
-        #model.add(MaxPool2D(pool_size=(2,2), strides=(2,2)))
-        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
-        #model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
-        #model.add(Flatten())
-        #model.add(Dense(units=4096, activation="relu"))
-        #model.add(Dense(units=4096, activation="relu"))
-        #model.add(Dense(units=2, activation="softmax"))
-        #model = Sequential()
-        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
-        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu', input_shape=(224, 224, 3)))
+        model.add(Conv2D(filters=64, kernel_size=(3, 3), padding='same', activation='relu'))
+        model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+        model.add(Conv2D(filters=128, kernel_size=(3, 3), padding='same', activation='relu'))
+        model.add(MaxPool2D(pool_size=(2,2), strides=(2,2)))
+        model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=256, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(Conv2D(filters=512, kernel_size=(3, 3), padding="same", activation="relu"))
+        model.add(MaxPool2D(pool_size=(2, 2), strides=(2, 2)))
+        model.add(Flatten())
+        model.add(Dense(units=4096, activation="relu"))
+        model.add(Dense(units=4096, activation="relu"))
+        model.add(Dense(units=2, activation="softmax"))
+        return model
 
+    def buildModelNormal(self):
+        model = Sequential()
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
+        model.add(Conv2D(filters=32, kernel_size=(3, 3), padding='valid', activation='relu', input_shape=(128, 128, 3)))
         model.add(Conv2D(filters=32, kernel_size=(7, 7), padding='valid', activation='relu', input_shape=(128, 128, 3)))
-
         model.add(MaxPool2D(pool_size=(2, 2)))
-
         model.add(Dropout(0.25))
         model.add(Flatten())
         model.add(Dense(256, activation='relu'))
@@ -209,10 +207,6 @@ class Predicter(QObject):
         return model
 
     def createAndTrainModel(self):
-        from tensorflow.python.keras import backend as K
-       # config = tf.compat.v1.ConfigProto(device_count={'GPU': 1, 'CPU': 8})
-        #sess = tf.compat.v1.Session(config=config)
-        #K.set_session(sess)
 
         self._trainingProcess = True
         self.trainingProcessChanged.emit()
@@ -221,27 +215,15 @@ class Predicter(QObject):
 
         for dirname, _, filenames in os.walk(self._authenticPath):
             for filename in filenames:
-                #         count+=1
-                #         if count < 1000:
-                #             pass
                 if filename.endswith('jpg') or filename.endswith('png') or filename.endswith('tif'):
                     full_path = os.path.join(dirname, filename)
                     X.append(self.prepare_image(full_path))
                     Y.append(1)
-                if len(Y) % 1000 == 0:
+                    if len(Y) % 1500 == 0:
+                        break
+                if len(Y) % 1500 == 0:
                     break
-            #if len(Y) % 1000 == 0:
-            #     print(f'Processing {len(Y)} images')
-              #  break
-                #if len(Y) % 2100 == 0:
-                #    break
-            if len(Y) % 1000 == 0:
-                break
 
-       # random.shuffle(X)
-       # X = X[:2100]
-        #Y = Y[:2100]
-        #print(len(X), len(Y))
 
         for dirname, _, filenames in os.walk(self._fakePath):
             for filename in filenames:
@@ -249,14 +231,14 @@ class Predicter(QObject):
                     full_path = os.path.join(dirname, filename)
                     X.append(self.prepare_image(full_path))
                     Y.append(0)
-                if len(Y) % 1000 == 0:
+                    if len(Y) % 3000 == 0:
+                        break
+                if len(Y) % 3000 == 0:
                     break
-            if len(Y) % 1000 == 0:
-                break
 
         print(len(X), len(Y))
 
-        # for i in range(10):
+        #for i in range(10):
         #    X, Y = shuffle(X, Y, random_state=i)
 
         X = np.array(X)
@@ -267,13 +249,15 @@ class Predicter(QObject):
         X = X.reshape(-1, 1, 1, 1)
         print(len(X_train), len(Y_train))
         print(len(X_val), len(Y_val))
-        model = self.build_model()
+
+        model = self.build_modelVGG16()
         model.summary()
 
-        init_lr = 1e-5
+        init_lr = 1e-4
         optimizer = Adam(learning_rate=init_lr, decay=init_lr/self._epochs)
 
         model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
+        early_stopping = EarlyStopping(monitor='val_accuracy', min_delta=0, patience=10, verbose=0, mode='auto')
 
         self._history = model.fit(
             X_train, Y_train,
@@ -281,17 +265,13 @@ class Predicter(QObject):
             batch_size=self._batch_size,
             validation_data=(X_val, Y_val),
             verbose=2,
-            callbacks=[ModelOutputCallback(self._signalHelper)])#,steps_per_epoch=100, use_multiprocessing=True, workers=4)
-
-        #lossX = history.history['loss']
-        #lossY = history.history['val_loss']
+            callbacks=[ModelOutputCallback(self._signalHelper), early_stopping])
 
         self._model = model
         self._trainingProcess = False
         self.trainingProcessChanged.emit()
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
-        #self.modelLearningFinished.emit()
 
     @pyqtSlot(str)
     def loadModel(self, path):
@@ -304,13 +284,9 @@ class Predicter(QObject):
         self._model = load_model(dir_path)
         self._modelPrepared = True
         self.modelPreparedChanged.emit()
-        #plt.plot([1, 2, 3, 4])
-        #plt.ylabel('some numbers')
-        #plt.show()
 
     @pyqtSlot()
     def showLossPlot(self):
-        from matplotlib.pyplot import figure
         plt.plot(self._history.history['loss'])
         plt.plot(self._history.history['val_loss'])
         plt.title('model loss')
@@ -321,7 +297,6 @@ class Predicter(QObject):
 
     @pyqtSlot()
     def showAccuracyPlot(self):
-        from matplotlib.pyplot import figure
         plt.plot(self._history.history['accuracy'])
         plt.plot(self._history.history['val_accuracy'])
         plt.title('model accuracy')
@@ -377,7 +352,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setWindowIcon(QtGui.QIcon('neural-network.png'))
     engine = QQmlApplicationEngine()
-    #engine.quit.connect(app.quit)
     sigHelper = SignalHelper()
     predicter = Predicter(sigHelper)
     context = engine.rootContext()

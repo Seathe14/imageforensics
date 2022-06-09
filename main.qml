@@ -1,4 +1,4 @@
-import QtQuick 2.0
+import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Dialogs
@@ -33,6 +33,14 @@ ApplicationWindow  {
         target: signalHelper
         function onMessageSignal(message) {
             statisticsTextEdit.text += message
+        }
+    }
+
+    Shortcut {
+        enabled: true
+        sequence: "Ctrl+E"
+        onActivated: {
+            textEdit.clear()
         }
     }
 
